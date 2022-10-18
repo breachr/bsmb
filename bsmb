@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+
+# clear
+# http://patorjk.com/software/taag/#p=display&h=1&v=1&f=ANSI%20Shadow&t=TEMPLATE
+# ANSI SHADOW
+echo "██████╗ ███████╗███╗   ███╗██████╗ "
+echo "██╔══██╗██╔════╝████╗ ████║██╔══██╗"
+echo "██████╔╝███████╗██╔████╔██║██████╔╝"
+echo "██╔══██╗╚════██║██║╚██╔╝██║██╔══██╗"
+echo "██████╔╝███████║██║ ╚═╝ ██║██████╔╝"
+echo "╚═════╝ ╚══════╝╚═╝     ╚═╝╚═════╝ "
+echo "by breachr"
+
+# Startup Checks and Trap
+if [[ $(basename $(dirname $(dirname "$PWD"))) != "PROJECT" ]] ; then
+  echo "You are not in a project dir!"; read confirm 
+fi
+if [ $USER != "root" ]; then
+    echo "This must be run as root (mysudo)."
+    exit 1
+fi
+if [ $# -lt 4 ]; then
+    echo 'Usage: bsmb $IP $USR $PW <SHARENAME> [<SHARENAME> <SHARENAME> ...]'
+    exit
+fi
+# Trapping CTRL-C
+trap dismount INT
+function dismount() {
+    echo "** Trapped CTRL-C - dismounting shares and exiting... **"
+    for share in "${SHARES[@]}"; do
+        umount ./mnt/$USER/$share && echo "Dismounted ./mnt/$USER/$share"
+        if [ "$?" -ne "0" ]; then
+            echo Failed Dismounting ./mnt/$USER/$share ... check terminals and press Enter
+            read confir && umount ./mnt/$USER/$share
+            echo "Dismounted ./mnt/$USER/$share"
+        fi
+        rm -d ./mnt/$USER/$share
+        sleep 1
+    done
+    sleep 1
+    rm -d ./mnt/$USER
+    exit 0
+}
+
+# Init
+IP=$1
+USER=$2
+PASS=$3
+shift 3
+SHARES=("$@")
+echo "User: $USER | $PASS | Shares: ${SHARES[@]}"
+
+# Create Folders
+mkdir -p ./mnt/$USER
+for share in "${SHARES[@]}"; do
+    mkdir -p ./mnt/$USER/$share
+    mount -t cifs //$IP/$share ./mnt/$USER/$share -o "username=$USER,password=$PASS" \
+    && echo "Mounted ./mnt/$USER/$share"
+done
+echo "CTRL-C to dismount | Leave Dir on all shells/programs!"
+while true; do
+    sleep 300
+done
+
+dismount
